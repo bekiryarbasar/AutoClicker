@@ -1,0 +1,10 @@
+AutoClicker optional video component: FFmpeg 9.0.2, Windows x86-64 essentials build.
+
+This FFmpeg build is licensed under GNU GPL version 3 or later because GPL components (including x264) are enabled. FFmpeg is a separate program launched by AutoClicker; it is not linked into the AutoClicker executable.
+
+GPLv3 license text: https://www.gnu.org/licenses/gpl-3.0.txt
+Corresponding FFmpeg source revision: https://github.com/FFmpeg/FFmpeg/tree/946fcce07b
+Windows build sources/configuration: https://github.com/GyanD/codexffmpeg/releases/tag/9.0.2
+Pinned upstream binary and SHA-256: https://github.com/imageio/imageio-ffmpeg/blob/v0.8.1/tools/ffmpeg-sources.json
+
+FFmpeg is downloaded only after the user selects video backgrounds and agrees to the download. Source code and build information are available through the links above.

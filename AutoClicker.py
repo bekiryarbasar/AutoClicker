@@ -6,22 +6,26 @@ import random
 import json
 import os
 import subprocess
+import queue
+import uuid
+import importlib
 from collections import deque
 from pathlib import Path
+from PIL import Image, ImageTk
 import tkinter as tk
 from tkinter import filedialog, messagebox
 from pynput.mouse import Listener as MouseListener
 from pynput.keyboard import Listener as KeyListener
 import ctypes
 from ctypes import wintypes
-from updater import confirm_update_startup, run_startup_check, run_update_worker
+from updater import confirm_update_startup, ensure_video_runtime, run_startup_check, run_update_worker
 
 # The fancy app name is stored with escapes so the .py file stays encoding-safe.
 APP_NAME = (
     "\U0001D56E\u0280\U0001D41A\U0001D5BF\U0001D45F\U0001D586"
     "\U0001D4FC\u1D07\U0001D5AC\U0001D5BA\u1D04\u0280\U0001D52C"
 )
-APP_VERSION = "1.0.3"
+APP_VERSION = "1.0.6"
 LEGACY_BACKGROUND_SHA256 = "8e5859b5216d545930ee7f442f14226ec12355cf57745ceb118dce5594b2211e"
 
 # The temporary copy of this same EXE performs the replacement after this
@@ -53,6 +57,200 @@ try {
   } finally { $bmp.Dispose() }
 } finally { $src.Dispose() }
 '''
+
+VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FPS = 510, 680, 8
+VIDEO_FRAME_BYTES = VIDEO_WIDTH * VIDEO_HEIGHT * 3
+video_process = None
+video_conversion_process = None
+video_generation = 0
+video_frame_queue = queue.Queue(maxsize=1)
+video_photo = None
+video_import_busy = False
+
+
+def video_runtime_path():
+    return CONFIG_DIR / "video-runtime" / "ffmpeg.exe"
+
+
+def video_runtime_is_cached():
+    path = video_runtime_path()
+    try:
+        with path.open("rb") as binary:
+            return path.stat().st_size > 1_000_000 and binary.read(2) == b"MZ"
+    except OSError:
+        return False
+
+
+def ffmpeg_executable():
+    if getattr(sys, "frozen", False):
+        return str(ensure_video_runtime(video_runtime_path()))
+    return importlib.import_module("imageio_ffmpeg").get_ffmpeg_exe()
+
+
+def stop_video_playback():
+    global video_process, video_generation
+    video_generation += 1
+    process, video_process = video_process, None
+    if process is not None and process.poll() is None:
+        try:
+            process.terminate()
+            process.wait(timeout=1)
+        except (OSError, subprocess.TimeoutExpired):
+            try:
+                process.kill()
+            except OSError:
+                pass
+    while True:
+        try:
+            video_frame_queue.get_nowait()
+        except queue.Empty:
+            break
+
+
+def _decode_video_frames(process, generation):
+    while generation == video_generation:
+        try:
+            frame = process.stdout.read(VIDEO_FRAME_BYTES)
+        except (OSError, ValueError):
+            break
+        if len(frame) != VIDEO_FRAME_BYTES or generation != video_generation:
+            break
+        try:
+            video_frame_queue.put_nowait(frame)
+        except queue.Full:
+            try:
+                video_frame_queue.get_nowait()
+                video_frame_queue.put_nowait(frame)
+            except queue.Empty:
+                pass
+
+
+def _show_video_frame(generation):
+    global background_image, video_photo
+    if generation != video_generation:
+        return
+    try:
+        frame = video_frame_queue.get_nowait()
+    except queue.Empty:
+        frame = None
+    if frame is not None:
+        try:
+            video_photo = ImageTk.PhotoImage(Image.frombytes("RGB", (VIDEO_WIDTH, VIDEO_HEIGHT), frame))
+            background_image = video_photo
+            canvas.itemconfigure(background_item, image=video_photo)
+        except (OSError, tk.TclError):
+            stop_video_playback()
+            return
+    if video_process is not None and video_process.poll() is not None:
+        stop_video_playback()
+        messagebox.showerror("Video oynatılamadı", "Seçilen video açılamadı. Başka bir video deneyin.", parent=root)
+        return
+    try:
+        root.after(125, lambda: _show_video_frame(generation))
+    except tk.TclError:
+        pass
+
+
+def start_video_playback(video_path):
+    global video_process
+    stop_video_playback()
+    command = [
+        ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-stream_loop", "-1", "-re",
+        "-i", str(video_path), "-an", "-vf",
+        "fps=8,scale=510:680:force_original_aspect_ratio=increase,crop=510:680,setsar=1",
+        "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1",
+    ]
+    no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
+    video_process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                     stderr=subprocess.DEVNULL, bufsize=VIDEO_FRAME_BYTES, creationflags=no_window)
+    generation = video_generation
+    threading.Thread(target=_decode_video_frames, args=(video_process, generation),
+                     name="AutoClickerVideoDecoder", daemon=True).start()
+    root.after(50, lambda: _show_video_frame(generation))
+
+
+def _transcode_video(source_path, temporary_path):
+    global video_conversion_process
+    command = [
+        ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(source_path),
+        "-map", "0:v:0", "-an", "-vf",
+        "fps=8,scale=510:680:force_original_aspect_ratio=increase,crop=510:680,setsar=1",
+        "-c:v", "libx264", "-preset", "veryfast", "-b:v", "280k", "-maxrate", "350k",
+        "-bufsize", "560k", "-threads", "1", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        str(temporary_path),
+    ]
+    process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.PIPE, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000))
+    video_conversion_process = process
+    try:
+        _, error_output = process.communicate(timeout=600)
+    except subprocess.TimeoutExpired as error:
+        process.kill()
+        process.communicate()
+        raise TimeoutError("Video hazırlığı 10 dakikayı geçti.") from error
+    finally:
+        video_conversion_process = None
+    if process.returncode != 0 or not temporary_path.is_file() or temporary_path.stat().st_size == 0:
+        details = error_output.decode("utf-8", errors="replace")[-500:].strip()
+        raise OSError(details or "Video dosyası dönüştürülemedi.")
+
+
+def _finish_video_import(temporary_path, error):
+    global video_import_busy
+    video_import_busy = False
+    try:
+        root.title(APP_NAME)
+        if error is not None:
+            temporary_path.unlink(missing_ok=True)
+            messagebox.showerror("Video eklenemedi", f"Video hazırlanamadı:\n{error}", parent=root)
+            return
+        stop_video_playback()
+        video_path = CONFIG_DIR / "background_video.mp4"
+        os.replace(temporary_path, video_path)
+        CONFIG_FILE.write_text(json.dumps({"background": str(video_path), "media_type": "video", "overlay_version": 0}, ensure_ascii=False), encoding="utf-8")
+        load_saved_background()
+    except (OSError, tk.TclError) as error:
+        temporary_path.unlink(missing_ok=True)
+        messagebox.showerror("Video eklenemedi", str(error), parent=root)
+
+
+def import_video_background(source_path):
+    global video_import_busy
+    if video_import_busy:
+        messagebox.showinfo("Video hazırlanıyor", "Önce mevcut video hazırlığının bitmesini bekleyin.", parent=root)
+        return
+    if getattr(sys, "frozen", False) and not video_runtime_is_cached():
+        accepted = messagebox.askyesno(
+            "Video bileşeni indirilecek",
+            "Video oynatmak için yaklaşık 39 MB'lık bileşen bir kez indirilecek ve bilgisayarınızda saklanacak. Devam edilsin mi?",
+            parent=root,
+        )
+        if not accepted:
+            return
+    video_import_busy = True
+    root.title(f"{APP_NAME} — Video hazırlanıyor")
+    temporary_path = CONFIG_DIR / f".background-video-{uuid.uuid4().hex}.mp4"
+
+    def worker():
+        error = None
+        try:
+            CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+            _transcode_video(source_path, temporary_path)
+        except Exception as caught:
+            error = caught
+        try:
+            root.after(0, lambda: _finish_video_import(temporary_path, error))
+        except tk.TclError:
+            temporary_path.unlink(missing_ok=True)
+
+    threading.Thread(target=worker, name="AutoClickerVideoImport", daemon=True).start()
+
+
+def _restore_saved_video(video_path):
+    if video_runtime_is_cached():
+        start_video_playback(video_path)
+        return
+    import_video_background(video_path)
 
 
 def render_photo_background(source_path, output_path):
@@ -358,26 +556,47 @@ def load_saved_background():
                 config.update(background="", overlay_version=0)
                 CONFIG_FILE.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
                 return
+            if config.get("media_type") == "video":
+                if getattr(sys, "frozen", False) and not video_runtime_is_cached():
+                    root.after(100, lambda path=saved_path: _restore_saved_video(path))
+                else:
+                    start_video_playback(saved_path)
+                return
+            stop_video_playback()
             background_image = tk.PhotoImage(file=str(saved_path))
             canvas.itemconfigure(background_item, image=background_image)
+        else:
+            stop_video_playback()
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
         pass
 
 
 def choose_background():
+    if video_import_busy:
+        messagebox.showinfo("Video hazırlanıyor", "Mevcut video hazırlığı bitince yeni bir arka plan seçebilirsiniz.", parent=root)
+        return
     selected = filedialog.askopenfilename(
         parent=root,
-        title="Arka plan fotoğrafı seç",
-        filetypes=[("Fotoğraflar", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"), ("Tüm dosyalar", "*.*")],
+        title="Arka plan fotoğrafı veya videosu seç",
+        filetypes=[
+            ("Fotoğraf ve videolar", "*.png *.jpg *.jpeg *.bmp *.gif *.webp *.mp4 *.mov *.m4v *.avi *.mkv *.webm"),
+            ("Videolar", "*.mp4 *.mov *.m4v *.avi *.mkv *.webm"),
+            ("Fotoğraflar", "*.png *.jpg *.jpeg *.bmp *.gif *.webp"),
+            ("Tüm dosyalar", "*.*"),
+        ],
     )
     if not selected:
+        return
+    suffix = Path(selected).suffix.lower()
+    if suffix in {".mp4", ".mov", ".m4v", ".avi", ".mkv", ".webm"}:
+        import_video_background(selected)
         return
     try:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         png_path = CONFIG_DIR / "background.png"
         render_photo_background(selected, png_path)
         CONFIG_FILE.write_text(
-            json.dumps({"background": str(png_path), "overlay_version": 0}, ensure_ascii=False),
+            json.dumps({"background": str(png_path), "media_type": "image", "overlay_version": 0}, ensure_ascii=False),
             encoding="utf-8",
         )
         load_saved_background()
@@ -531,6 +750,19 @@ KeyListener(on_press=on_press, on_release=on_release).start()
 MouseListener(on_click=on_click).start()
 threading.Thread(target=click_loop, args=("left",), daemon=True).start()
 threading.Thread(target=click_loop, args=("right",), daemon=True).start()
+
+
+def close_application():
+    stop_video_playback()
+    if video_conversion_process is not None and video_conversion_process.poll() is None:
+        try:
+            video_conversion_process.terminate()
+        except OSError:
+            pass
+    root.destroy()
+
+
+root.protocol("WM_DELETE_WINDOW", close_application)
 
 confirm_update_startup()
 root.mainloop()

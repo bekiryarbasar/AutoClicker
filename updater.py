@@ -5,6 +5,7 @@ from __future__ import annotations
 import ctypes
 from ctypes import wintypes
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -15,6 +16,7 @@ import sys
 import tempfile
 import time
 import uuid
+import zipfile
 from urllib.parse import quote, urlparse
 from urllib.request import Request, urlopen
 
@@ -25,6 +27,10 @@ OWNER = "bekiryarbasar"
 REPOSITORY = "AutoClicker"
 APP_EXE = "AutoClicker.exe"
 MAX_EXE_BYTES = 150 * 1024 * 1024
+VIDEO_RUNTIME_ASSET = "AutoClicker-VideoRuntime.zip"
+MAX_VIDEO_RUNTIME_ARCHIVE = 50 * 1024 * 1024
+MAX_VIDEO_RUNTIME_EXE = 150 * 1024 * 1024
+VIDEO_RUNTIME_EXE_SHA256 = "3256173f3f8bffd7df12227c68adf68025edb1832273a9530688a7bb1ed8edec"
 API_TIMEOUT = 8
 
 
@@ -40,9 +46,9 @@ def _version_tuple(value: str) -> tuple[int, ...] | None:
     return parts + (0,) * (4 - len(parts))
 
 
-def _get(url: str, limit: int, accept: str) -> tuple[bytes, dict]:
+def _get(url: str, limit: int, accept: str, timeout: int = API_TIMEOUT) -> tuple[bytes, dict]:
     request = Request(url, headers={"Accept": accept, "User-Agent": "AutoClicker-Updater/1.0", "X-GitHub-Api-Version": "2022-11-28"})
-    with urlopen(request, timeout=API_TIMEOUT) as response:
+    with urlopen(request, timeout=timeout) as response:
         length = response.headers.get("Content-Length")
         if length and int(length) > limit:
             raise ValueError("Dosya beklenenden büyük.")
@@ -50,6 +56,72 @@ def _get(url: str, limit: int, accept: str) -> tuple[bytes, dict]:
     if len(data) > limit:
         raise ValueError("Dosya beklenenden büyük.")
     return data, {}
+
+
+def ensure_video_runtime(destination: Path) -> Path:
+    """Fetch and cache the optional video decoder only when video is selected."""
+    destination = Path(destination)
+    if destination.is_file() and destination.stat().st_size > 1_000_000:
+        with destination.open("rb") as existing:
+            if existing.read(2) == b"MZ":
+                return destination
+
+    api_url = f"https://api.github.com/repos/{quote(OWNER)}/{quote(REPOSITORY)}/releases/latest"
+    raw, _ = _get(api_url, 2 * 1024 * 1024, "application/vnd.github+json")
+    release = json.loads(raw)
+    if not isinstance(release, dict) or release.get("draft") or release.get("prerelease"):
+        raise ValueError("Video bileşenini sağlayan kararlı sürüm bulunamadı.")
+    tag = release.get("tag_name", "")
+    assets = [asset for asset in release.get("assets", []) if isinstance(asset, dict) and asset.get("name") == VIDEO_RUNTIME_ASSET]
+    if len(assets) != 1:
+        raise ValueError("Yayınlanan sürümde video bileşeni bulunamadı.")
+    asset = assets[0]
+    url = asset.get("browser_download_url", "")
+    expected_digest = asset.get("digest", "")
+    parsed = urlparse(url)
+    expected_path = f"/{OWNER}/{REPOSITORY}/releases/download/{tag}/{VIDEO_RUNTIME_ASSET}"
+    if parsed.scheme != "https" or parsed.hostname != "github.com" or parsed.path != expected_path:
+        raise ValueError("Video bileşeninin indirme adresi güvenli değil.")
+    if not isinstance(expected_digest, str) or not re.fullmatch(r"sha256:[0-9a-fA-F]{64}", expected_digest):
+        raise ValueError("Video bileşeninin GitHub SHA-256 özeti bulunamadı.")
+
+    archive_data, _ = _get(url, MAX_VIDEO_RUNTIME_ARCHIVE, "application/octet-stream", timeout=60)
+    if hashlib.sha256(archive_data).hexdigest() != expected_digest.split(":", 1)[1].lower():
+        raise ValueError("Video bileşeninin SHA-256 doğrulaması başarısız oldu.")
+
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary = destination.with_name(f".{destination.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with zipfile.ZipFile(io.BytesIO(archive_data), "r") as archive:
+            entries = archive.infolist()
+            if len(entries) != 1 or entries[0].filename != "ffmpeg.exe" or entries[0].is_dir():
+                raise ValueError("Video bileşeni beklenen dosya yapısına sahip değil.")
+            entry = entries[0]
+            if not 1_000_000 <= entry.file_size <= MAX_VIDEO_RUNTIME_EXE:
+                raise ValueError("Video bileşeninin boyutu beklenmiyor.")
+            if (entry.external_attr >> 16) & 0o170000 == 0o120000:
+                raise ValueError("Video bileşeni sembolik bağlantı içeremez.")
+            if archive.testzip() is not None:
+                raise ValueError("Video bileşeninin ZIP arşivi bozuk.")
+            with archive.open(entry, "r") as source, temporary.open("wb") as target:
+                shutil.copyfileobj(source, target, length=1024 * 1024)
+
+        if temporary.stat().st_size != entry.file_size:
+            raise ValueError("Video bileşeni eksik indirildi.")
+        digest = hashlib.sha256()
+        with temporary.open("rb") as binary:
+            if binary.read(2) != b"MZ":
+                raise ValueError("İndirilen bileşen geçerli bir Windows EXE değil.")
+            binary.seek(0)
+            for chunk in iter(lambda: binary.read(1024 * 1024), b""):
+                digest.update(chunk)
+        if digest.hexdigest() != VIDEO_RUNTIME_EXE_SHA256:
+            raise ValueError("Video bileşeninin dosya özeti beklenen değerle eşleşmiyor.")
+        os.replace(temporary, destination)
+        return destination
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _latest_release(current_version: str) -> dict | None:
