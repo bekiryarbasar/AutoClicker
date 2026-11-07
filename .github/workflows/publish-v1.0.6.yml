@@ -1,0 +1,32 @@
+name: Publish AutoClicker v1.0.6
+
+on:
+  push:
+    branches:
+      - publish-v1.0.6
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-publish:
+    runs-on: windows-latest
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Install build requirements
+        run: python -m pip install -r requirements.txt
+      - name: Download legacy updater compatibility package
+        run: gh release download v1.0.3 --repo bekiryarbasar/AutoClicker --pattern AutoClicker-Windows.zip --dir release/v1.0.3
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Build release files
+        run: .\build_release.ps1 -Tag v1.0.6
+      - name: Publish GitHub Release
+        run: gh release create v1.0.6 release\v1.0.6\AutoClicker.exe release\v1.0.6\AutoClicker-VideoRuntime.zip release\v1.0.6\AutoClicker-Windows.zip release\v1.0.6\SHA256SUMS.txt release\v1.0.6\Release-Notes.md release\v1.0.6\THIRD_PARTY_NOTICES.md --title "AutoClicker v1.0.6" --notes-file release\v1.0.6\Release-Notes.md
+        env:
+          GH_TOKEN: ${{ github.token }}
