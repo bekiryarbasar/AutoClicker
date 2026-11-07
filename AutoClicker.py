@@ -1,6 +1,7 @@
 import time
 import threading
 import sys
+import hashlib
 import random
 import json
 import os
@@ -20,7 +21,8 @@ APP_NAME = (
     "\U0001D56E\u0280\U0001D41A\U0001D5BF\U0001D45F\U0001D586"
     "\U0001D4FC\u1D07\U0001D5AC\U0001D5BA\u1D04\u0280\U0001D52C"
 )
-APP_VERSION = "1.0.2"
+APP_VERSION = "1.0.3"
+LEGACY_BACKGROUND_SHA256 = "8e5859b5216d545930ee7f442f14226ec12355cf57745ceb118dce5594b2211e"
 
 # The temporary copy of this same EXE performs the replacement after this
 # process closes. Handle it before constructing the clicker interface.
@@ -348,6 +350,14 @@ def load_saved_background():
                 config.update(background=str(clean_path), overlay_version=0)
                 CONFIG_FILE.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
         if saved_path.is_file():
+            # Remove only the exact old personal image that was left selected
+            # on the author's machine; other users' chosen backgrounds remain.
+            digest = hashlib.sha256(saved_path.read_bytes()).hexdigest()
+            if digest == LEGACY_BACKGROUND_SHA256:
+                saved_path.unlink(missing_ok=True)
+                config.update(background="", overlay_version=0)
+                CONFIG_FILE.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+                return
             background_image = tk.PhotoImage(file=str(saved_path))
             canvas.itemconfigure(background_item, image=background_image)
     except (OSError, ValueError, TypeError, json.JSONDecodeError):
@@ -471,6 +481,7 @@ draw_click_panel("right")
 backed_text(255, 583, text="Sol ve sağ tık için tetik tuşlarını panellerden değiştirebilirsin.", fill="#FFFFFF", font=("Arial", 9))
 backed_text(255, 610, text=INSTAGRAM, fill="#F2F2F2", font=("Arial", 9, "bold"))
 cps_readout = backed_text(255, 651, text="SOL: 0 CPS  |  SAG: 0 CPS", fill="#8EE5FF", font=("Arial", 11, "bold"))
+version_readout = backed_text(500, 672, text=f"v{APP_VERSION}", fill="#B8B8B8", font=("Arial", 8), anchor="se")
 
 
 def handle_canvas_click(event):
