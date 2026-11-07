@@ -58,6 +58,46 @@ def _get(url: str, limit: int, accept: str, timeout: int = API_TIMEOUT) -> tuple
     return data, {}
 
 
+def _download_large(url: str, limit: int, accept: str, connect_timeout: int = 30, chunk_timeout: int = 30, total_timeout: int = 600) -> bytes:
+    """Download large files via streaming to avoid short socket timeouts.
+
+    urlopen's ``timeout`` only covers the initial connection and each individual
+    socket read, so reading a large response body can still hit it on slow
+    connections.  This helper opens the connection with *connect_timeout* and
+    then reads the body in chunks, applying *chunk_timeout* per chunk and
+    *total_timeout* for the whole transfer.
+    """
+    import socket as _socket
+    _TIMEOUT_EXC = (TimeoutError, _socket.timeout, OSError)
+    request = Request(url, headers={"Accept": accept, "User-Agent": "AutoClicker-Updater/1.0", "X-GitHub-Api-Version": "2022-11-28"})
+    deadline = time.monotonic() + total_timeout
+    with urlopen(request, timeout=connect_timeout) as response:
+        length = response.headers.get("Content-Length")
+        if length and int(length) > limit:
+            raise ValueError("Dosya beklenenden büyük.")
+        chunks: list[bytes] = []
+        received = 0
+        try:
+            response.fp.raw.settimeout(chunk_timeout)  # type: ignore[attr-defined]
+        except (AttributeError, _socket.error):
+            pass
+        while True:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("İndirme toplam süre limitini aştı.")
+            try:
+                chunk = response.read(256 * 1024)
+            except _TIMEOUT_EXC as exc:
+                raise TimeoutError(f"İndirme sırasında bağlantı zaman aşımına uğradı: {exc}") from exc
+            if not chunk:
+                break
+            received += len(chunk)
+            if received > limit:
+                raise ValueError("Dosya beklenenden büyük.")
+            chunks.append(chunk)
+    return b"".join(chunks)
+
+
 def ensure_video_runtime(destination: Path) -> Path:
     """Fetch and cache the optional video decoder only when video is selected."""
     destination = Path(destination)
@@ -85,7 +125,7 @@ def ensure_video_runtime(destination: Path) -> Path:
     if not isinstance(expected_digest, str) or not re.fullmatch(r"sha256:[0-9a-fA-F]{64}", expected_digest):
         raise ValueError("Video bileşeninin GitHub SHA-256 özeti bulunamadı.")
 
-    archive_data, _ = _get(url, MAX_VIDEO_RUNTIME_ARCHIVE, "application/octet-stream", timeout=60)
+    archive_data = _download_large(url, MAX_VIDEO_RUNTIME_ARCHIVE, "application/octet-stream")
     if hashlib.sha256(archive_data).hexdigest() != expected_digest.split(":", 1)[1].lower():
         raise ValueError("Video bileşeninin SHA-256 doğrulaması başarısız oldu.")
 
@@ -232,7 +272,7 @@ def run_startup_check(current_version: str) -> None:
         if not accepted:
             return
         try:
-            data, _ = _get(update["url"], MAX_EXE_BYTES, "application/octet-stream")
+            data = _download_large(update["url"], MAX_EXE_BYTES, "application/octet-stream")
             if hashlib.sha256(data).hexdigest() != update["sha256"]:
                 raise ValueError("İndirilen dosyanın SHA-256 değeri eşleşmedi.")
             if len(data) < 1_000_000 or not data.startswith(b"MZ"):
