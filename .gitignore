@@ -1,0 +1,8 @@
+.venv/
+build/
+release/
+__pycache__/
+*.py[cod]
+/original/
+/AutoClicker.exe
+/AutoClickerUpdater.exe
