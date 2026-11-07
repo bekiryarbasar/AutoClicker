@@ -20,7 +20,7 @@ APP_NAME = (
     "\U0001D56E\u0280\U0001D41A\U0001D5BF\U0001D45F\U0001D586"
     "\U0001D4FC\u1D07\U0001D5AC\U0001D5BA\u1D04\u0280\U0001D52C"
 )
-APP_VERSION = "1.0.1"
+APP_VERSION = "1.0.2"
 
 # The temporary copy of this same EXE performs the replacement after this
 # process closes. Handle it before constructing the clicker interface.
@@ -333,7 +333,7 @@ canvas.pack(fill="both", expand=True)
 background_item = canvas.create_image(0, 0, image=background_image, anchor="nw")
 
 def backed_text(*args, **kwargs):
-    """Draw text over the smooth dark translucent treatment baked into the photo."""
+    """Draw readable text over the plain black default background."""
     return canvas.create_text(*args, **kwargs)
 
 def load_saved_background():

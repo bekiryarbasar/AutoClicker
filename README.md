@@ -40,16 +40,16 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-`AutoClicker.py` içindeki `APP_VERSION` değerini artırın (ör. `1.0.2`), GitHub'a kaynak değişikliklerini gönderin ve derleyin:
+`AutoClicker.py` içindeki `APP_VERSION` değerini artırın (ör. `1.0.3`), GitHub'a kaynak değişikliklerini gönderin ve derleyin:
 
 ```powershell
 git add .
-git commit -m "Release v1.0.2"
+git commit -m "Release v1.0.3"
 git push origin main
-.\build_release.ps1 -Tag v1.0.2
+.\build_release.ps1 -Tag v1.0.3
 ```
 
-GitHub'da **Releases → Draft a new release** seçin, etiket olarak `v1.0.2` yazın, betiğin ürettiği `release\v1.0.2\AutoClicker.exe` dosyasını ekleyin ve yayına alın. Güncelleyici yalnızca bu herkese açık deponun en son kararlı sürümünü kabul eder. API'deki GitHub SHA-256 özeti dosya bütünlüğünü doğrular.
+GitHub'da **Releases → Draft a new release** seçin, etiket olarak `v1.0.3` yazın, betiğin ürettiği `release\v1.0.3\AutoClicker.exe` dosyasını ekleyin ve yayına alın. Güncelleyici yalnızca bu herkese açık deponun en son kararlı sürümünü kabul eder. API'deki GitHub SHA-256 özeti dosya bütünlüğünü doğrular.
 
 ## Proje yapısı
 
