@@ -13,14 +13,23 @@ from pynput.mouse import Listener as MouseListener
 from pynput.keyboard import Listener as KeyListener
 import ctypes
 from ctypes import wintypes
-from updater import confirm_update_startup, start_update_check
+from updater import confirm_update_startup, run_startup_check, run_update_worker
 
 # The fancy app name is stored with escapes so the .py file stays encoding-safe.
 APP_NAME = (
     "\U0001D56E\u0280\U0001D41A\U0001D5BF\U0001D45F\U0001D586"
     "\U0001D4FC\u1D07\U0001D5AC\U0001D5BA\u1D04\u0280\U0001D52C"
 )
-APP_VERSION = "1.0.0"
+APP_VERSION = "1.0.1"
+
+# The temporary copy of this same EXE performs the replacement after this
+# process closes. Handle it before constructing the clicker interface.
+if len(sys.argv) > 1 and sys.argv[1] == "--autoclicker-apply-update":
+    raise SystemExit(run_update_worker(sys.argv[2:]))
+
+# Check GitHub and ask before the normal interface appears. Network failures
+# are intentionally ignored so the clicker remains usable offline.
+run_startup_check(APP_VERSION)
 INSTAGRAM = "INSTAGRAM= @bekiryarbasar"
 ICON_FILE = "ikon.ico"
 BACKGROUND_IMAGE = "background_ui.png"
@@ -512,9 +521,5 @@ MouseListener(on_click=on_click).start()
 threading.Thread(target=click_loop, args=("left",), daemon=True).start()
 threading.Thread(target=click_loop, args=("right",), daemon=True).start()
 
-# Check after the existing UI has initialized so the clicker remains usable
-# while GitHub is contacted. Network failures leave the app unchanged.
-root.after(1500, lambda: start_update_check(root, APP_VERSION))
 confirm_update_startup()
-
 root.mainloop()

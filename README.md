@@ -1,63 +1,59 @@
 # AutoClicker
 
-Windows için Türkçe arayüzlü, sol ve sağ fare tıklamalarını ayrı ayrı ayarlayabileceğiniz hafif bir otomatik tıklama uygulaması.
+Windows için Türkçe arayüzlü, sol ve sağ fare tıklamalarını ayrı ayrı yönetebileceğiniz otomatik tıklama uygulaması.
 
 ## Özellikler
 
-- **Bağımsız sol ve sağ tıklama:** İki düğme aynı anda çalışabilir; her biri ayrı hız ve tetikleyici kullanır.
-- **Ayarlanabilir tıklama hızı:** Her düğme için saniyede 1–60 tıklama (CPS) seçilebilir.
-- **Değiştirilebilir tetikleyiciler:** Sol ve sağ tıklama için ayrı klavye tuşu veya fare düğmesi atanabilir. Varsayılan klavye kısayolları sol için `F6`, sağ için `F7`.
-- **İki çalışma biçimi:** Tetikleyiciyi basılı tuttuğunuz sürece tıklama veya bir kez basarak başlatıp tekrar basarak durdurma.
-- **Değişken hız:** İsteğe bağlı olarak hız, seçilen CPS değerinden en fazla 3 CPS aşağıda değişir; alt sınır 1 CPS'tir.
-- **Canlı durum ve sayaç:** Uygulama tıklamanın çalışıp çalışmadığını ve sol/sağ için ölçülen anlık CPS değerlerini gösterir.
-- **Kişisel arka plan:** PNG, JPG/JPEG, BMP, GIF veya WebP görseli seçilebilir. Seçilen arka plan kullanıcı klasöründe saklanır.
-- **GitHub Releases güncellemeleri:** Açılışta yeni kararlı sürüm aranır. Yeni sürüm bulunursa indirme ve yeniden başlatma kullanıcı onayıyla başlar.
-- **Doğrulamalı ve geri alınabilir kurulum:** ZIP SHA-256 ile doğrulanır; program ve güncelleme yardımcısı değiştirilmeden önce yedeklenir. Yeni sürüm başlangıç onayını vermezse eski dosyalar geri yüklenir.
+- Sol ve sağ tıklama bağımsız çalışır ve aynı anda kullanılabilir.
+- Her taraf için saniyede 1–60 tıklama (CPS) hızı seçilebilir.
+- Klavye veya fare tetikleyicileri ayrı ayrı atanabilir; varsayılanlar sol için `F6`, sağ için `F7`.
+- **Basılı tut** ve **aç/kapat** çalışma biçimleri bulunur.
+- İsteğe bağlı değişken hız, seçilen hızın en fazla 3 CPS altına iner.
+- Canlı sol/sağ CPS göstergesi vardır.
+- PNG, JPG/JPEG, BMP, GIF veya WebP kişisel arka plan olarak seçilebilir.
+- Açılışta GitHub Releases sürümü kontrol edilir. Güncelleme varsa kullanıcıya sorulur.
+- Onaydan sonra yeni `AutoClicker.exe` indirilir, SHA-256 özeti doğrulanır, uygulama kendini değiştirip yeniden başlatır. Kurulum başarısız olursa önceki EXE yedekten geri yüklenir.
+- İnternet yoksa veya GitHub'a ulaşılamazsa uygulama normal şekilde açılır.
+
+## İndirme ve kullanma
+
+1. [Son sürüm sayfasını açın](https://github.com/bekiryarbasar/AutoClicker/releases/latest).
+2. `AutoClicker.exe` dosyasını indirin. Windows uyarı verirse yalnızca dosyayı GitHub'daki bu resmi sürüm sayfasından indirdiğinizi doğruladıktan sonra çalıştırın.
+3. İndirilen EXE'ye çift tıklayın. Kurulum veya ek dosya gerekmez.
+4. Güncelleme bulunduğunda **Evet** derseniz indirip kurar ve yeniden açar; **Hayır** mevcut sürümle devam eder.
 
 ## Kullanım
 
-1. `AutoClicker.exe` dosyasını `AutoClickerUpdater.exe` ve `updater_config.json` ile aynı klasöre çıkarıp çalıştırın.
-2. Sol ve sağ paneldeki kaydırıcılarla CPS değerlerini ayarlayın.
-3. Bir tetikleyiciyi değiştirmek için ilgili **TETİK** alanına tıklayın, ardından istediğiniz klavye tuşuna veya fare düğmesine basın.
-4. **BASILI TUT** ya da **AÇ/KAPAT** çalışma biçimini seçin.
-5. Tıklamayı ilgili tetikleyiciyle başlatın. Arka planı değiştirmek için sağ üstteki klasör simgesini kullanın.
+Sol ve sağ paneldeki kaydırıcılarla hızı ayarlayın. Tetikleyiciyi değiştirmek için ilgili **TETİK** alanına tıklayıp klavyede bir tuşa veya fare düğmesine basın. **BASILI TUT** veya **AÇ/KAPAT** modunu seçin. Arka planı sağ üstteki klasör simgesinden değiştirebilirsiniz.
 
-## Kullanıcı dosyaları
+## Ayarlar ve dosyalar
 
-Ayar dosyası ve seçilen arka plan `%APPDATA%\AutoClicker2` altında tutulur. Güncelleyici bu klasöre dokunmaz; yalnızca `AutoClicker.exe` ve `AutoClickerUpdater.exe` dosyalarını değiştirir. Arka plan seçimi saklanır. CPS, tetikleyici, rastgele hız ve çalışma biçimi mevcut uygulama sürümünde her açılışta varsayılan değerlerden başlar.
+Kullanıcı ayarları `%APPDATA%\AutoClicker2` altında tutulur. Güncelleme yalnızca uygulamanın EXE dosyasını değiştirir; ayarlar ve seçilen arka plan bu klasörde kaldığından korunur. Kullanıcıya dağıtılan/yayımlanan ana dosya yalnızca `AutoClicker.exe`'dir.
 
-## İndirme ve ilk kurulum
+## Yeni sürüm yayımlama
 
-GitHub Releases sayfasındaki `AutoClicker-Windows.zip` dosyasını indirin ve içindeki üç dosyayı aynı klasöre çıkarın. İlk güncelleme destekli sürüme geçerken eski EXE'yi kapatıp yeni paketi bir kez elle kurmanız gerekir; güncelleme kodu eski EXE'de bulunmaz. Kullanıcı ayarları `%APPDATA%` altında kaldığından korunur.
-
-## Güncelleme deposu
-
-Güncelleyici `updater_config.json` içindeki `owner` ve `repo` değerleriyle herkese açık GitHub deposunu arar. Bu projede depo `bekiryarbasar/AutoClicker` olarak ayarlanmıştır. Gizli depolar ve erişim anahtarları kullanılmaz.
-
-Her kararlı GitHub Release şu iki varlığı içermelidir:
-
-- `AutoClicker-Windows.zip` — kökünde `AutoClicker.exe`, `AutoClickerUpdater.exe` ve `updater_config.json` bulunan paket.
-- `SHA256SUMS.txt` — ZIP dosyasının SHA-256 özeti.
-
-Güncelleyici `v1.0.0` gibi sayısal sürüm etiketlerini karşılaştırır; taslakları ve ön sürümleri atlar.
-
-## Kaynaktan derleme
-
-Windows ve Python 3.12 gerekir. PowerShell'i proje klasöründe açın:
+Gerekli ortam: Windows ve Python 3.12. Proje klasöründe PowerShell açın:
 
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\build_release.ps1 -Tag v1.0.0
 ```
 
-Betik `AutoClicker.spec` ve `AutoClickerUpdater.spec` ile iki tek dosyalı Windows EXE üretir, ardından Release ZIP'i ve SHA-256 dosyasını hazırlar. Yeni sürüm yayımlarken `AutoClicker.py` içindeki `APP_VERSION` değerini artırıp aynı etiketi kullanın; örneğin `APP_VERSION = "1.0.1"` ve `-Tag v1.0.1`.
+`AutoClicker.py` içindeki `APP_VERSION` değerini artırın (ör. `1.0.2`), GitHub'a kaynak değişikliklerini gönderin ve derleyin:
 
-## Depo yapısı
+```powershell
+git add .
+git commit -m "Release v1.0.2"
+git push origin main
+.\build_release.ps1 -Tag v1.0.2
+```
 
-- `AutoClicker.py` — arayüz ve tıklama motoru.
-- `updater.py` — GitHub Release kontrolü, ZIP doğrulaması ve güncelleme başlatma.
-- `AutoClickerUpdater.py` — yedekleme, dosya değiştirme, açılış doğrulaması ve geri alma.
-- `*.spec`, `tk_runtime_hook.py`, `hooks/`, `tk-data/` — PyInstaller ve Tcl/Tk paketleme ayarları.
-- `updater_config.json` — GitHub depo adı ve güncelleme seçeneği.
+GitHub'da **Releases → Draft a new release** seçin, etiket olarak `v1.0.2` yazın, betiğin ürettiği `release\v1.0.2\AutoClicker.exe` dosyasını ekleyin ve yayına alın. Güncelleyici yalnızca bu herkese açık deponun en son kararlı sürümünü kabul eder. API'deki GitHub SHA-256 özeti dosya bütünlüğünü doğrular.
+
+## Proje yapısı
+
+- `AutoClicker.py`: uygulama arayüzü, tıklama motoru ve sürüm numarası.
+- `updater.py`: açılışta sürüm kontrolü, kullanıcı onayı, indirme doğrulaması, kendini güncelleme ve geri alma.
+- `AutoClicker.spec`, `tk_runtime_hook.py`, `hooks/`, `tk-data/`: PyInstaller ve Tcl/Tk paketleme ayarları.
+- `build_release.ps1`: yalnızca dağıtılacak tek EXE'yi oluşturur.
