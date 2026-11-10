@@ -33,7 +33,7 @@ Sol ve sağ paneldeki kaydırıcılarla hızı ayarlayın. Tetikleyiciyi değiş
 
 Kullanıcı ayarları `%APPDATA%\AutoClicker2` altında tutulur. Güncelleme yalnızca uygulamanın EXE dosyasını değiştirir; ayarlar ve seçilen arka plan bu klasörde kaldığından korunur. Kullanıcıya dağıtılan/yayımlanan ana dosya yalnızca `AutoClicker.exe`'dir.
 
-Video arka planı `%APPDATA%\AutoClicker2` klasöründe tutulur. Ses çıkarılır; video 8 FPS ve düşük bit hızında, pencere boyutuna küçültülerek saklanır. Uygulama video kaynağını internetten indirmez veya bir sunucuya göndermez.
+Video arka planı `%APPDATA%\AutoClicker2` klasöründe tutulur. Ses çıkarılır; video 30 FPS'te ve 510×680 çözünürlükte saklanır. Uygulama video kaynağını internetten indirmez veya bir sunucuya göndermez.
 
 ## Yeni sürüm yayımlama
 
@@ -54,7 +54,7 @@ git push origin main
 .\build_release.ps1 -Tag v1.0.9
 ```
 
-GitHub'da **Releases → Draft a new release** seçin, etiketi sürümle eşleştirin ve sürüm notlarını ekleyin. `release\<etiket>` içinden yalnızca `AutoClicker.exe` dosyasını varlık olarak yükleyin. GitHub kaynak kodu arşivlerini otomatik oluşturur; kullanıcıların uygulamayı indirmesi için bu arşivlere gerek yoktur.
+GitHub'da **Releases → Draft a new release** seçin, etiketi sürümle eşleştirin ve sürüm notlarını ekleyin. `release\<etiket>` içinden yalnızca `AutoClicker.exe` dosyasını varlık olarak yükleyin. Video desteği EXE'ye dahildir. GitHub ayrıca kaynak kodu arşivlerini otomatik oluşturur.
 
 Güncelleyici en son kararlı sürümü kontrol eder ve indirilen EXE'nin GitHub SHA-256 özetini doğrular.
 

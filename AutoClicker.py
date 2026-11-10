@@ -25,8 +25,9 @@ APP_NAME = (
     "\U0001D56E\u0280\U0001D41A\U0001D5BF\U0001D45F\U0001D586"
     "\U0001D4FC\u1D07\U0001D5AC\U0001D5BA\u1D04\u0280\U0001D52C"
 )
-APP_VERSION = "1.0.8"
+APP_VERSION = "1.0.10"
 LEGACY_BACKGROUND_SHA256 = "8e5859b5216d545930ee7f442f14226ec12355cf57745ceb118dce5594b2211e"
+VIDEO_DECODER_BUNDLE_NAME = "ffmpeg-win-x86_64-v9.0.2.exe"
 
 # The temporary copy of this same EXE performs the replacement after this
 # process closes. Handle it before constructing the clicker interface.
@@ -58,7 +59,7 @@ try {
 } finally { $src.Dispose() }
 '''
 
-VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FPS = 510, 680, 8
+VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_FPS = 510, 680, 30
 VIDEO_FRAME_BYTES = VIDEO_WIDTH * VIDEO_HEIGHT * 3
 video_process = None
 video_conversion_process = None
@@ -86,7 +87,7 @@ def video_runtime_is_cached():
 
 def ffmpeg_executable():
     if getattr(sys, "frozen", False):
-        bundled = resource_path("ffmpeg.exe")
+        bundled = resource_path(VIDEO_DECODER_BUNDLE_NAME)
         if bundled.is_file():
             return str(bundled)
         return str(ensure_video_runtime(video_runtime_path()))
@@ -152,7 +153,7 @@ def _show_video_frame(generation):
         messagebox.showerror("Video oynatılamadı", "Seçilen video açılamadı. Başka bir video deneyin.", parent=root)
         return
     try:
-        root.after(125, lambda: _show_video_frame(generation))
+        root.after(max(1, 1000 // VIDEO_FPS), lambda: _show_video_frame(generation))
     except tk.TclError:
         pass
 
@@ -163,7 +164,7 @@ def start_video_playback(video_path):
     command = [
         ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-stream_loop", "-1", "-re",
         "-i", str(video_path), "-an", "-vf",
-        "fps=8,scale=510:680:force_original_aspect_ratio=increase,crop=510:680,setsar=1",
+        f"fps={VIDEO_FPS},scale=510:680:force_original_aspect_ratio=increase,crop=510:680,setsar=1",
         "-pix_fmt", "rgb24", "-f", "rawvideo", "pipe:1",
     ]
     no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0x08000000)
@@ -180,9 +181,9 @@ def _transcode_video(source_path, temporary_path):
     command = [
         ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-y", "-i", str(source_path),
         "-map", "0:v:0", "-an", "-vf",
-        "fps=8,scale=510:680:force_original_aspect_ratio=increase,crop=510:680,setsar=1",
-        "-c:v", "libx264", "-preset", "veryfast", "-b:v", "280k", "-maxrate", "350k",
-        "-bufsize", "560k", "-threads", "1", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
+        f"fps={VIDEO_FPS},scale=510:680:force_original_aspect_ratio=increase,crop=510:680,setsar=1",
+        "-c:v", "libx264", "-preset", "veryfast", "-b:v", "900k", "-maxrate", "1100k",
+        "-bufsize", "2200k", "-threads", "1", "-pix_fmt", "yuv420p", "-movflags", "+faststart",
         str(temporary_path),
     ]
     process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
@@ -225,7 +226,7 @@ def import_video_background(source_path):
     if video_import_busy:
         messagebox.showinfo("Video hazırlanıyor", "Önce mevcut video hazırlığının bitmesini bekleyin.", parent=root)
         return
-    bundled_decoder = getattr(sys, "frozen", False) and resource_path("ffmpeg.exe").is_file()
+    bundled_decoder = getattr(sys, "frozen", False) and resource_path(VIDEO_DECODER_BUNDLE_NAME).is_file()
     if getattr(sys, "frozen", False) and not bundled_decoder and not video_runtime_is_cached():
         accepted = messagebox.askyesno(
             "Video bileşeni indirilecek",
@@ -254,7 +255,8 @@ def import_video_background(source_path):
 
 
 def _restore_saved_video(video_path):
-    if Path(ffmpeg_executable()).is_file():
+    bundled = resource_path(VIDEO_DECODER_BUNDLE_NAME)
+    if bundled.is_file() or video_runtime_is_cached():
         start_video_playback(video_path)
         return
     import_video_background(video_path)
