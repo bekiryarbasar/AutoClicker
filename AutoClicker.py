@@ -25,7 +25,7 @@ APP_NAME = (
     "\U0001D56E\u0280\U0001D41A\U0001D5BF\U0001D45F\U0001D586"
     "\U0001D4FC\u1D07\U0001D5AC\U0001D5BA\u1D04\u0280\U0001D52C"
 )
-APP_VERSION = "1.0.10"
+APP_VERSION = "1.0.12"
 LEGACY_BACKGROUND_SHA256 = "8e5859b5216d545930ee7f442f14226ec12355cf57745ceb118dce5594b2211e"
 VIDEO_DECODER_BUNDLE_NAME = "ffmpeg-win-x86_64-v9.0.2.exe"
 
@@ -65,8 +65,25 @@ video_process = None
 video_conversion_process = None
 video_generation = 0
 video_frame_queue = queue.Queue(maxsize=1)
+video_decoder_active = threading.Event()
 video_photo = None
 video_import_busy = False
+
+if os.name == "nt":
+    _USER32 = ctypes.WinDLL("user32", use_last_error=True)
+    _USER32.GetAncestor.argtypes = [wintypes.HWND, wintypes.UINT]
+    _USER32.GetAncestor.restype = wintypes.HWND
+    _USER32.GetForegroundWindow.restype = wintypes.HWND
+    _USER32.IsIconic.argtypes = [wintypes.HWND]
+    _USER32.IsIconic.restype = wintypes.BOOL
+    _USER32.IsWindowVisible.argtypes = [wintypes.HWND]
+    _USER32.IsWindowVisible.restype = wintypes.BOOL
+    _USER32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
+    _USER32.GetWindowRect.restype = wintypes.BOOL
+    _USER32.GetClassNameW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
+    _USER32.GetClassNameW.restype = ctypes.c_int
+else:
+    _USER32 = None
 
 
 def video_runtime_path():
@@ -97,6 +114,8 @@ def ffmpeg_executable():
 def stop_video_playback():
     global video_process, video_generation
     video_generation += 1
+    # Release the decoder thread if it is waiting for the window to become active.
+    video_decoder_active.set()
     process, video_process = video_process, None
     if process is not None and process.poll() is None:
         try:
@@ -112,10 +131,13 @@ def stop_video_playback():
             video_frame_queue.get_nowait()
         except queue.Empty:
             break
+    video_decoder_active.clear()
 
 
 def _decode_video_frames(process, generation):
     while generation == video_generation:
+        if not video_decoder_active.wait(timeout=0.25):
+            continue
         try:
             frame = process.stdout.read(VIDEO_FRAME_BYTES)
         except (OSError, ValueError):
@@ -136,6 +158,10 @@ def _show_video_frame(generation):
     global background_image, video_photo
     if generation != video_generation:
         return
+    if not _video_window_active():
+        video_decoder_active.clear()
+        return
+    video_decoder_active.set()
     try:
         frame = video_frame_queue.get_nowait()
     except queue.Empty:
@@ -171,9 +197,77 @@ def start_video_playback(video_path):
     video_process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                      stderr=subprocess.DEVNULL, bufsize=VIDEO_FRAME_BYTES, creationflags=no_window)
     generation = video_generation
+    if _video_window_active():
+        video_decoder_active.set()
+    else:
+        video_decoder_active.clear()
     threading.Thread(target=_decode_video_frames, args=(video_process, generation),
                      name="AutoClickerVideoDecoder", daemon=True).start()
     root.after(50, lambda: _show_video_frame(generation))
+
+
+def _video_window_active():
+    try:
+        if root.state() == "iconic" or not root.winfo_viewable():
+            return False
+        if _USER32 is None:
+            return True
+
+        app_window = _USER32.GetAncestor(root.winfo_id(), 2)  # GA_ROOT
+        if not app_window or _USER32.IsIconic(app_window) or not _USER32.IsWindowVisible(app_window):
+            return False
+
+        foreground = _USER32.GetForegroundWindow()
+        if not foreground or foreground == app_window:
+            return True
+        class_name = ctypes.create_unicode_buffer(128)
+        _USER32.GetClassNameW(foreground, class_name, len(class_name))
+        if class_name.value in {"Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd"}:
+            return True
+
+        app_rect, foreground_rect = wintypes.RECT(), wintypes.RECT()
+        if not _USER32.GetWindowRect(app_window, ctypes.byref(app_rect)):
+            return True
+        if not _USER32.GetWindowRect(foreground, ctypes.byref(foreground_rect)):
+            return True
+        overlaps = (
+            min(app_rect.right, foreground_rect.right) > max(app_rect.left, foreground_rect.left)
+            and min(app_rect.bottom, foreground_rect.bottom) > max(app_rect.top, foreground_rect.top)
+        )
+        return not overlaps
+    except tk.TclError:
+        return True
+
+
+def _resume_video_on_map(event):
+    if event.widget is not root or not _video_window_active() or video_process is None:
+        return
+    video_decoder_active.set()
+    generation = video_generation
+    try:
+        root.after(0, lambda: _show_video_frame(generation))
+    except tk.TclError:
+        pass
+
+
+def _pause_video_on_unmap(event):
+    if event.widget is root and video_process is not None:
+        video_decoder_active.clear()
+
+
+def _refresh_video_visibility():
+    if video_process is not None:
+        active = _video_window_active()
+        if active and not video_decoder_active.is_set():
+            video_decoder_active.set()
+            generation = video_generation
+            root.after(0, lambda: _show_video_frame(generation))
+        elif not active:
+            video_decoder_active.clear()
+    try:
+        root.after(400, _refresh_video_visibility)
+    except tk.TclError:
+        pass
 
 
 def _transcode_video(source_path, temporary_path):
@@ -530,6 +624,9 @@ root = tk.Tk()
 root.title(APP_NAME)
 root.geometry("510x680")
 root.resizable(False, False)
+root.bind("<Map>", _resume_video_on_map, add="+")
+root.bind("<Unmap>", _pause_video_on_unmap, add="+")
+root.after(400, _refresh_video_visibility)
 
 try:
     root.iconbitmap(str(resource_path(ICON_FILE)))

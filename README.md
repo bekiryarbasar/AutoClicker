@@ -33,7 +33,7 @@ Sol ve sağ paneldeki kaydırıcılarla hızı ayarlayın. Tetikleyiciyi değiş
 
 Kullanıcı ayarları `%APPDATA%\AutoClicker2` altında tutulur. Güncelleme yalnızca uygulamanın EXE dosyasını değiştirir; ayarlar ve seçilen arka plan bu klasörde kaldığından korunur. Kullanıcıya dağıtılan/yayımlanan ana dosya yalnızca `AutoClicker.exe`'dir.
 
-Video arka planı `%APPDATA%\AutoClicker2` klasöründe tutulur. Ses çıkarılır; video 30 FPS'te ve 510×680 çözünürlükte saklanır. Uygulama video kaynağını internetten indirmez veya bir sunucuya göndermez.
+Video arka planı `%APPDATA%\AutoClicker2` klasöründe tutulur. Ses çıkarılır; video 30 FPS'te ve 510×680 çözünürlükte saklanır. Pencere küçültülür veya başka bir pencere AutoClicker'ın üstünü kapatırsa oynatma duraklar; masaüstüne tıklamak videoyu durdurmaz. Pencere yeniden görünür olduğunda video kaldığı yerden sürer. Uygulama video kaynağını internetten indirmez veya bir sunucuya göndermez.
 
 ## Yeni sürüm yayımlama
 
@@ -45,13 +45,13 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-`AutoClicker.py` içindeki `APP_VERSION` değerini artırın (ör. `1.0.9`), kaynak değişikliklerini gönderin ve derleyin:
+`AutoClicker.py` içindeki `APP_VERSION` değerini artırın (ör. `1.0.12`), kaynak değişikliklerini gönderin ve derleyin:
 
 ```powershell
-git add AutoClicker.py AutoClicker.spec build_release.ps1 README.md RELEASE_NOTES_v1.0.8.md
-git commit -m "Release v1.0.9"
+git add AutoClicker.py AutoClicker.spec build_release.ps1 README.md RELEASE_NOTES_v1.0.12.md
+git commit -m "Release v1.0.12"
 git push origin main
-.\build_release.ps1 -Tag v1.0.9
+.\build_release.ps1 -Tag v1.0.12
 ```
 
 GitHub'da **Releases → Draft a new release** seçin, etiketi sürümle eşleştirin ve sürüm notlarını ekleyin. `release\<etiket>` içinden yalnızca `AutoClicker.exe` dosyasını varlık olarak yükleyin. Video desteği EXE'ye dahildir. GitHub ayrıca kaynak kodu arşivlerini otomatik oluşturur.
