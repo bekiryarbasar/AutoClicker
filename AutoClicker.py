@@ -25,7 +25,7 @@ APP_NAME = (
     "\U0001D56E\u0280\U0001D41A\U0001D5BF\U0001D45F\U0001D586"
     "\U0001D4FC\u1D07\U0001D5AC\U0001D5BA\u1D04\u0280\U0001D52C"
 )
-APP_VERSION = "1.0.7"
+APP_VERSION = "1.0.8"
 LEGACY_BACKGROUND_SHA256 = "8e5859b5216d545930ee7f442f14226ec12355cf57745ceb118dce5594b2211e"
 
 # The temporary copy of this same EXE performs the replacement after this
@@ -76,13 +76,19 @@ def video_runtime_is_cached():
     path = video_runtime_path()
     try:
         with path.open("rb") as binary:
-            return path.stat().st_size > 1_000_000 and binary.read(2) == b"MZ"
+            if path.stat().st_size <= 1_000_000 or binary.read(2) != b"MZ":
+                return False
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        return digest == "3256173f3f8bffd7df12227c68adf68025edb1832273a9530688a7bb1ed8edec"
     except OSError:
         return False
 
 
 def ffmpeg_executable():
     if getattr(sys, "frozen", False):
+        bundled = resource_path("ffmpeg.exe")
+        if bundled.is_file():
+            return str(bundled)
         return str(ensure_video_runtime(video_runtime_path()))
     return importlib.import_module("imageio_ffmpeg").get_ffmpeg_exe()
 
@@ -219,7 +225,8 @@ def import_video_background(source_path):
     if video_import_busy:
         messagebox.showinfo("Video hazırlanıyor", "Önce mevcut video hazırlığının bitmesini bekleyin.", parent=root)
         return
-    if getattr(sys, "frozen", False) and not video_runtime_is_cached():
+    bundled_decoder = getattr(sys, "frozen", False) and resource_path("ffmpeg.exe").is_file()
+    if getattr(sys, "frozen", False) and not bundled_decoder and not video_runtime_is_cached():
         accepted = messagebox.askyesno(
             "Video bileşeni indirilecek",
             "Video oynatmak için yaklaşık 39 MB'lık bileşen bir kez indirilecek ve bilgisayarınızda saklanacak. Devam edilsin mi?",
@@ -247,7 +254,7 @@ def import_video_background(source_path):
 
 
 def _restore_saved_video(video_path):
-    if video_runtime_is_cached():
+    if Path(ffmpeg_executable()).is_file():
         start_video_playback(video_path)
         return
     import_video_background(video_path)

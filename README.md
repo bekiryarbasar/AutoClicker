@@ -13,7 +13,7 @@ Windows için Türkçe arayüzlü, sol ve sağ fare tıklamalarını ayrı ayrı
 - Uygulamanın sürüm numarası arayüzün sağ alt köşesinde görünür.
 - PNG, JPG/JPEG, BMP, GIF veya WebP kişisel arka plan olarak seçilebilir.
 - MP4, MOV, M4V, AVI, MKV veya WebM video arka plan olarak seçilebilir; video sessiz ve döngü halinde oynatılır.
-- İlk video seçiminde yaklaşık 39 MB'lık video bileşeni için bir defa onay istenir; indirilip bilgisayarda saklanır. Video 510×680 çözünürlüğe, saniyede 8 kareye ve düşük bit hızına dönüştürülür. Yalnızca seçilen yerel dosya kullanılır; oynarken internet verisi harcanmaz.
+- Video desteği uygulamanın içine dahildir; ek bir dosya indirmek gerekmez. Video sessizce döngü halinde oynatılır ve bilgisayarda yerel olarak saklanır.
 - Açılışta GitHub Releases sürümü kontrol edilir. Güncelleme varsa kullanıcıya sorulur.
 - Onaydan sonra yeni `AutoClicker.exe` indirilir, SHA-256 özeti doğrulanır, uygulama kendini değiştirip yeniden başlatır. Kurulum başarısız olursa önceki EXE yedekten geri yüklenir.
 - İnternet yoksa veya GitHub'a ulaşılamazsa uygulama normal şekilde açılır.
@@ -21,7 +21,7 @@ Windows için Türkçe arayüzlü, sol ve sağ fare tıklamalarını ayrı ayrı
 ## İndirme ve kullanma
 
 1. [Son sürüm sayfasını açın](https://github.com/bekiryarbasar/AutoClicker/releases/latest).
-2. `AutoClicker.exe` dosyasını indirin. Windows uyarı verirse yalnızca dosyayı GitHub'daki bu resmi sürüm sayfasından indirdiğinizi doğruladıktan sonra çalıştırın.
+2. Varlıklar bölümünden yalnızca `AutoClicker.exe` dosyasını indirin. Windows uyarı verirse dosyayı resmi GitHub sürüm sayfasından indirdiğinizi doğrulayın.
 3. İndirilen EXE'ye çift tıklayın. Kurulum veya ek dosya gerekmez.
 4. Güncelleme bulunduğunda **Evet** derseniz indirip kurar ve yeniden açar; **Hayır** mevcut sürümle devam eder.
 
@@ -33,7 +33,7 @@ Sol ve sağ paneldeki kaydırıcılarla hızı ayarlayın. Tetikleyiciyi değiş
 
 Kullanıcı ayarları `%APPDATA%\AutoClicker2` altında tutulur. Güncelleme yalnızca uygulamanın EXE dosyasını değiştirir; ayarlar ve seçilen arka plan bu klasörde kaldığından korunur. Kullanıcıya dağıtılan/yayımlanan ana dosya yalnızca `AutoClicker.exe`'dir.
 
-Video arka planı uygulamanın bu klasördeki yerel önbelleğinde tutulur. Video çözücüsü ilk video seçiminde indirilir ve sonraki kullanımlar için aynı klasörde saklanır. Ses çıkarılır; video 8 FPS ve 280 kbit/sn hedef bit hızıyla, pencere boyutuna küçültülerek saklanır. Uygulama video kaynağını internetten indirmez veya bir sunucuya göndermez.
+Video arka planı `%APPDATA%\AutoClicker2` klasöründe tutulur. Ses çıkarılır; video 8 FPS ve düşük bit hızında, pencere boyutuna küçültülerek saklanır. Uygulama video kaynağını internetten indirmez veya bir sunucuya göndermez.
 
 ## Yeni sürüm yayımlama
 
@@ -45,16 +45,16 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 ```
 
-`AutoClicker.py` içindeki `APP_VERSION` değerini artırın (ör. `1.0.6`), GitHub'a kaynak değişikliklerini gönderin ve derleyin:
+`AutoClicker.py` içindeki `APP_VERSION` değerini artırın (ör. `1.0.9`), kaynak değişikliklerini gönderin ve derleyin:
 
 ```powershell
-git add .
-git commit -m "Release v1.0.6"
+git add AutoClicker.py AutoClicker.spec build_release.ps1 README.md RELEASE_NOTES_v1.0.8.md
+git commit -m "Release v1.0.9"
 git push origin main
-.\build_release.ps1 -Tag v1.0.6
+.\build_release.ps1 -Tag v1.0.9
 ```
 
-GitHub'da **Releases → Draft a new release** seçin, etiket olarak `v1.0.6` yazın. `release\v1.0.6` içindeki `AutoClicker.exe` ve `AutoClicker-VideoRuntime.zip` dosyalarını ekleyin. Eski v1.0.0 uygulamalarının güncelleyicisini desteklemek için önceki sürümdeki `AutoClicker-Windows.zip` ve ona ait `SHA256SUMS.txt` dosyalarını da yeni sürüme ekleyin. Üçüncü taraf lisansları `THIRD_PARTY_NOTICES.md` içinde listelenir.
+GitHub'da **Releases → Draft a new release** seçin, etiketi sürümle eşleştirin ve sürüm notlarını ekleyin. `release\<etiket>` içinden yalnızca `AutoClicker.exe` dosyasını varlık olarak yükleyin. GitHub kaynak kodu arşivlerini otomatik oluşturur; kullanıcıların uygulamayı indirmesi için bu arşivlere gerek yoktur.
 
 Güncelleyici en son kararlı sürümü kontrol eder ve indirilen EXE'nin GitHub SHA-256 özetini doğrular.
 

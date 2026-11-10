@@ -26,28 +26,8 @@ $exe = Join-Path $dist 'AutoClicker.exe'
 if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) { throw 'AutoClicker.exe derleme çıktısı bulunamadı.' }
 Copy-Item -LiteralPath $exe -Destination (Join-Path $release 'AutoClicker.exe')
 
-# Publish the optional video decoder separately. The app fetches and caches it
-# only when a user chooses a video, keeping the regular EXE download smaller.
-$ffmpegSource = & $python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())'
-$ffmpegHash = (Get-FileHash -LiteralPath $ffmpegSource -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($ffmpegHash -ne '3256173f3f8bffd7df12227c68adf68025edb1832273a9530688a7bb1ed8edec') { throw 'Video çözücüsü beklenen resmi dosya değil.' }
-$runtimeDir = Join-Path $build 'video-runtime'
-$null = New-Item -ItemType Directory -Path $runtimeDir -Force
-Copy-Item -LiteralPath $ffmpegSource -Destination (Join-Path $runtimeDir 'ffmpeg.exe')
-Copy-Item -LiteralPath (Join-Path $root 'FFmpeg-NOTICE.txt') -Destination $runtimeDir
-$runtimeZip = Join-Path $release 'AutoClicker-VideoRuntime.zip'
-Compress-Archive -Path (Join-Path $runtimeDir '*') -DestinationPath $runtimeZip -CompressionLevel Optimal
-
 $digest = (Get-FileHash -LiteralPath (Join-Path $release 'AutoClicker.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
-$compatArchive = Join-Path $root 'release\v1.0.3\AutoClicker-Windows.zip'
-if (Test-Path -LiteralPath $compatArchive -PathType Leaf) {
-    Copy-Item -LiteralPath $compatArchive -Destination (Join-Path $release 'AutoClicker-Windows.zip')
-    $compatDigest = (Get-FileHash -LiteralPath (Join-Path $release 'AutoClicker-Windows.zip') -Algorithm SHA256).Hash.ToLowerInvariant()
-    [System.IO.File]::WriteAllText((Join-Path $release 'SHA256SUMS.txt'), "$compatDigest  AutoClicker-Windows.zip`r`n", [System.Text.Encoding]::ASCII)
-} else {
-    [System.IO.File]::WriteAllText((Join-Path $release 'SHA256SUMS.txt'), "$digest  AutoClicker.exe`r`n", [System.Text.Encoding]::ASCII)
-}
-Copy-Item -LiteralPath (Join-Path $root 'THIRD_PARTY_NOTICES.md') -Destination $release
+[System.IO.File]::WriteAllText((Join-Path $release 'SHA256SUMS.txt'), "$digest  AutoClicker.exe`r`n", [System.Text.Encoding]::ASCII)
 Copy-Item -LiteralPath (Join-Path $root "RELEASE_NOTES_$Tag.md") -Destination (Join-Path $release 'Release-Notes.md')
 Write-Host "Hazır: $release"
-Write-Host 'Yeni kullanıcılar AutoClicker.exe dosyasını indirir. Video çözücüsü ilk video seçiminde onayla indirilir.'
+Write-Host 'GitHub sürümüne yalnızca AutoClicker.exe dosyasını ekleyin. Video desteği EXE içine dahildir.'

@@ -10,6 +10,7 @@ a = Analysis(
     binaries=[
         (str(ROOT / "tk-data" / "tcl86t.dll"), "."),
         (str(ROOT / "tk-data" / "tk86t.dll"), "."),
+        (str(__import__("imageio_ffmpeg").get_ffmpeg_exe()), "."),
     ],
     datas=[
         (str(ROOT / "ikon.ico"), "."),
